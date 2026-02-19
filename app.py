@@ -12,19 +12,30 @@ from flask import Flask, render_template, request, jsonify
 import pybaseball
 import pandas as pd
 import os
-import vertexai
-from vertexai.generative_models import GenerativeModel
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 pybaseball.cache.enable()
 
 app = Flask(__name__)
 
-# Vertex AI / Gemini setup (use env vars)
-GCP_PROJECT = os.environ.get("GCP_PROJECT", "your-gcp-project-id")
+GCP_PROJECT  = os.environ.get("GCP_PROJECT")
 GCP_LOCATION = os.environ.get("GCP_LOCATION", "us-central1")
 
-vertexai.init(project=GCP_PROJECT, location=GCP_LOCATION)
-gemini = GenerativeModel("gemini-1.5-flash")
+_gemini = None
+def get_gemini():
+    global _gemini
+    if _gemini is None:
+        import vertexai
+        from vertexai.generative_models import GenerativeModel
+        vertexai.init(project=GCP_PROJECT, location=GCP_LOCATION)
+        _gemini = GenerativeModel("gemini-1.5-flash")
+    return _gemini
+
 
 MLB_TEAMS = {
     "ARI": "Arizona Diamondbacks",
@@ -59,7 +70,8 @@ MLB_TEAMS = {
     "WSN": "Washington Nationals",
 }
 
-AVAILABLE_YEARS = list(range(2025, 2014, -1))
+AVAILABLE_YEARS = list(range(2024, 2014, -1))
+
 
 @app.route("/")
 def index():
@@ -76,12 +88,10 @@ def get_players():
         return jsonify({"error": "Team and year are required"}), 400
 
     try:
-        # Fetch batters for the team/year
-        batters_df = pybaseball.batting_stats(year, year, qual=1)
+        batters_df  = pybaseball.batting_stats(year, year, qual=1)
         pitchers_df = pybaseball.pitching_stats(year, year, qual=1)
 
-        # Filter by team
-        team_batters = batters_df[batters_df["Team"] == team].copy()
+        team_batters  = batters_df[batters_df["Team"] == team].copy()
         team_pitchers = pitchers_df[pitchers_df["Team"] == team].copy()
 
         batters_list = []
@@ -90,32 +100,31 @@ def get_players():
                 "name": row["Name"],
                 "type": "Batter",
                 "games": int(row.get("G", 0)),
-                "avg": round(float(row.get("AVG", 0)), 3),
-                "hr": int(row.get("HR", 0)),
-                "rbi": int(row.get("RBI", 0)),
-                "ops": round(float(row.get("OPS", 0)), 3),
+                "avg":   round(float(row.get("AVG", 0)), 3),
+                "hr":    int(row.get("HR", 0)),
+                "rbi":   int(row.get("RBI", 0)),
+                "ops":   round(float(row.get("OPS", 0)), 3),
             })
 
         pitchers_list = []
         for _, row in team_pitchers.iterrows():
             pitchers_list.append({
-                "name": row["Name"],
-                "type": "Pitcher",
-                "games": int(row.get("G", 0)),
-                "era": round(float(row.get("ERA", 0)), 2),
-                "wins": int(row.get("W", 0)),
+                "name":       row["Name"],
+                "type":       "Pitcher",
+                "games":      int(row.get("G", 0)),
+                "era":        round(float(row.get("ERA", 0)), 2),
+                "wins":       int(row.get("W", 0)),
                 "strikeouts": int(row.get("SO", 0)),
-                "whip": round(float(row.get("WHIP", 0)), 2),
+                "whip":       round(float(row.get("WHIP", 0)), 2),
             })
 
-        # Sort by games played
         batters_list.sort(key=lambda x: x["games"], reverse=True)
         pitchers_list.sort(key=lambda x: x["games"], reverse=True)
 
         return jsonify({
-            "team": MLB_TEAMS.get(team, team),
-            "year": year,
-            "batters": batters_list,
+            "team":     MLB_TEAMS.get(team, team),
+            "year":     year,
+            "batters":  batters_list,
             "pitchers": pitchers_list,
         })
 
@@ -126,7 +135,7 @@ def get_players():
 @app.route("/api/player-stats", methods=["GET"])
 def get_player_stats():
     player_name = request.args.get("name")
-    year = request.args.get("year", type=int)
+    year        = request.args.get("year", type=int)
     player_type = request.args.get("type", "Batter")
 
     if not player_name or not year:
@@ -134,62 +143,62 @@ def get_player_stats():
 
     try:
         if player_type == "Batter":
-            df = pybaseball.batting_stats(year, year, qual=1)
+            df         = pybaseball.batting_stats(year, year, qual=1)
             player_row = df[df["Name"] == player_name]
 
             if player_row.empty:
                 return jsonify({"error": "Player not found"}), 404
 
-            row = player_row.iloc[0]
+            row   = player_row.iloc[0]
             stats = {
-                "name": player_name,
-                "year": year,
-                "type": "Batter",
-                "team": row.get("Team", "N/A"),
-                "games": int(row.get("G", 0)),
-                "at_bats": int(row.get("AB", 0)),
-                "hits": int(row.get("H", 0)),
-                "doubles": int(row.get("2B", 0)),
-                "triples": int(row.get("3B", 0)),
-                "home_runs": int(row.get("HR", 0)),
-                "rbi": int(row.get("RBI", 0)),
+                "name":         player_name,
+                "year":         year,
+                "type":         "Batter",
+                "team":         row.get("Team", "N/A"),
+                "games":        int(row.get("G", 0)),
+                "at_bats":      int(row.get("AB", 0)),
+                "hits":         int(row.get("H", 0)),
+                "doubles":      int(row.get("2B", 0)),
+                "triples":      int(row.get("3B", 0)),
+                "home_runs":    int(row.get("HR", 0)),
+                "rbi":          int(row.get("RBI", 0)),
                 "stolen_bases": int(row.get("SB", 0)),
-                "walks": int(row.get("BB", 0)),
-                "strikeouts": int(row.get("SO", 0)),
-                "avg": round(float(row.get("AVG", 0)), 3),
-                "obp": round(float(row.get("OBP", 0)), 3),
-                "slg": round(float(row.get("SLG", 0)), 3),
-                "ops": round(float(row.get("OPS", 0)), 3),
-                "war": round(float(row.get("WAR", 0)), 1),
-                "wrc_plus": int(row.get("wRC+", 0)) if "wRC+" in row else "N/A",
+                "walks":        int(row.get("BB", 0)),
+                "strikeouts":   int(row.get("SO", 0)),
+                "avg":          round(float(row.get("AVG", 0)), 3),
+                "obp":          round(float(row.get("OBP", 0)), 3),
+                "slg":          round(float(row.get("SLG", 0)), 3),
+                "ops":          round(float(row.get("OPS", 0)), 3),
+                "war":          round(float(row.get("WAR", 0)), 1),
+                "wrc_plus":     int(row.get("wRC+", 0)) if "wRC+" in row else "N/A",
             }
         else:
-            df = pybaseball.pitching_stats(year, year, qual=1)
+            df         = pybaseball.pitching_stats(year, year, qual=1)
             player_row = df[df["Name"] == player_name]
 
             if player_row.empty:
                 return jsonify({"error": "Player not found"}), 404
 
-            row = player_row.iloc[0]
+            row   = player_row.iloc[0]
             stats = {
-                "name": player_name,
-                "year": year,
-                "type": "Pitcher",
-                "team": row.get("Team", "N/A"),
-                "games": int(row.get("G", 0)),
-                "games_started": int(row.get("GS", 0)),
-                "wins": int(row.get("W", 0)),
-                "losses": int(row.get("L", 0)),
-                "saves": int(row.get("SV", 0)),
+                "name":            player_name,
+                "year":            year,
+                "type":            "Pitcher",
+                "team":            row.get("Team", "N/A"),
+                "games":           int(row.get("G", 0)),
+                "games_started":   int(row.get("GS", 0)),
+                "wins":            int(row.get("W", 0)),
+                "losses":          int(row.get("L", 0)),
+                "saves":           int(row.get("SV", 0)),
                 "innings_pitched": round(float(row.get("IP", 0)), 1),
-                "strikeouts": int(row.get("SO", 0)),
-                "walks": int(row.get("BB", 0)),
-                "era": round(float(row.get("ERA", 0)), 2),
-                "whip": round(float(row.get("WHIP", 0)), 2),
-                "k9": round(float(row.get("K/9", 0)), 1) if "K/9" in row else "N/A",
-                "bb9": round(float(row.get("BB/9", 0)), 1) if "BB/9" in row else "N/A",
-                "fip": round(float(row.get("FIP", 0)), 2) if "FIP" in row else "N/A",
-                "war": round(float(row.get("WAR", 0)), 1),
+                "strikeouts":      int(row.get("SO", 0)),
+                "walks":           int(row.get("BB", 0)),
+                "era":             round(float(row.get("ERA", 0)), 2),
+                "whip":            round(float(row.get("WHIP", 0)), 2),
+                "k9":              round(float(row.get("K/9",  0)), 1) if "K/9"  in row else "N/A",
+                "bb9":             round(float(row.get("BB/9", 0)), 1) if "BB/9" in row else "N/A",
+                "fip":             round(float(row.get("FIP",  0)), 2) if "FIP"  in row else "N/A",
+                "war":             round(float(row.get("WAR",  0)), 1),
             }
 
         return jsonify(stats)
@@ -204,8 +213,8 @@ def analyze_player():
     if not data:
         return jsonify({"error": "No data provided"}), 400
 
-    name = data.get("name")
-    year = data.get("year")
+    name        = data.get("name")
+    year        = data.get("year")
     player_type = data.get("type")
 
     if not name or not year or not player_type:
@@ -231,7 +240,7 @@ def analyze_player():
                 f"WAR: {data.get('war')}",
                 f"wRC+: {data.get('wrc_plus')}",
             ]
-            role_context = "position player (batter)"
+            role_context     = "position player (batter)"
             grade_benchmarks = (
                 "Use these grade benchmarks for a position player:\n"
                 "  A+ = MVP-caliber (WAR 7+, OPS 1.000+)\n"
@@ -258,7 +267,7 @@ def analyze_player():
                 f"FIP: {data.get('fip')}",
                 f"WAR: {data.get('war')}",
             ]
-            role_context = "pitcher"
+            role_context     = "pitcher"
             grade_benchmarks = (
                 "Use these grade benchmarks for a pitcher:\n"
                 "  A+ = Cy Young-caliber (WAR 7+, ERA sub-2.50)\n"
@@ -290,41 +299,36 @@ Assign a single letter grade (A+, A, A-, B+, B, B-, C+, C, C-, D+, D, D-, or F) 
 
 Do not include any other sections or commentary outside of SUMMARY and GRADE."""
 
-        response = gemini.generate_content(prompt)
-        raw = response.text.strip()
-
-        # Parse the two sections out of Gemini's response
-        summary = ""
-        grade_text = ""
+        response     = get_gemini().generate_content(prompt)
+        raw          = response.text.strip()
+        summary      = ""
+        grade_text   = ""
         grade_letter = ""
 
         if "SUMMARY:" in raw and "GRADE:" in raw:
             summary_start = raw.index("SUMMARY:") + len("SUMMARY:")
-            grade_start = raw.index("GRADE:")
-            summary = raw[summary_start:grade_start].strip()
-            grade_block = raw[grade_start + len("GRADE:"):].strip()
+            grade_start   = raw.index("GRADE:")
+            summary       = raw[summary_start:grade_start].strip()
+            grade_block   = raw[grade_start + len("GRADE:"):].strip()
 
-            # Extract just the letter grade (first token)
-            first_token = grade_block.split()[0] if grade_block else ""
+            first_token  = grade_block.split()[0] if grade_block else ""
             valid_grades = {"A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","F"}
             if first_token in valid_grades:
                 grade_letter = first_token
-                grade_text = grade_block
+                grade_text   = grade_block
             else:
-                # Fallback: search for a grade anywhere in the block
                 for g in ["A+","A-","B+","B-","C+","C-","D+","D-","A","B","C","D","F"]:
                     if g in grade_block:
                         grade_letter = g
-                        grade_text = grade_block
+                        grade_text   = grade_block
                         break
         else:
-            # If format wasn't followed, return full text as summary
-            summary = raw
+            summary    = raw
             grade_text = "Grade not detected."
 
         return jsonify({
-            "summary": summary,
-            "grade": grade_letter,
+            "summary":    summary,
+            "grade":      grade_letter,
             "grade_text": grade_text,
         })
 
