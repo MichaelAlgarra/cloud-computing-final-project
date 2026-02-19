@@ -33,7 +33,7 @@ def get_gemini():
         import vertexai
         from vertexai.generative_models import GenerativeModel
         vertexai.init(project=GCP_PROJECT, location=GCP_LOCATION)
-        _gemini = GenerativeModel("gemini-2.0-flash-001")
+        _gemini = GenerativeModel("gemini-2.0-flash-001") # Utilizing Gemini 2.0
     return _gemini
 
 
