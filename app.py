@@ -70,7 +70,7 @@ MLB_TEAMS = {
     "WSN": "Washington Nationals",
 }
 
-AVAILABLE_YEARS = list(range(2024, 2014, -1))
+AVAILABLE_YEARS = list(range(2025, 2014, -1))
 
 
 @app.route("/")

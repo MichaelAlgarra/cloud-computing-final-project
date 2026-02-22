@@ -76,18 +76,6 @@
       margin-bottom: 48px;
     }
 
-    .logo-icon {
-      width: 56px;
-      height: 56px;
-      background: var(--red);
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 28px;
-      flex-shrink: 0;
-      box-shadow: 0 4px 24px rgba(200,16,46,0.4);
-    }
 
     .header-text h1 {
       font-family: 'Bebas Neue', sans-serif;
@@ -585,7 +573,6 @@
 
   <!-- HEADER -->
   <header>
-    <div class="logo-icon">⚾</div>
     <div class="header-text">
       <h1>MLB Player Analyzer</h1>
       <p>Select a team and season to explore player statistics</p>
@@ -608,7 +595,7 @@
       <label>Season</label>
       <select id="year-select">
         {% for year in years %}
-        <option value="{{ year }}" {% if year == 2023 %}selected{% endif %}>{{ year }}</option>
+        <option value="{{ year }}" {% if year == 2025 %}selected{% endif %}>{{ year }}</option>
         {% endfor %}
       </select>
     </div>
@@ -648,7 +635,7 @@
       <!-- AI ANALYSIS PANEL -->
       <div class="ai-panel" id="ai-panel">
         <div class="ai-panel-header">
-          <div class="ai-panel-title">🤖 &nbsp;Gemini AI Analysis</div>
+          <div class="ai-panel-title">&nbsp;Gemini AI Analysis</div>
           <button class="btn-analyze" id="analyze-btn" onclick="analyzePlayer()">
             <span id="analyze-btn-text">Analyze Player</span>
             <div class="spinner" id="analyze-spinner" style="display:none; width:16px; height:16px;"></div>
@@ -897,7 +884,7 @@
     } catch (err) {
       document.getElementById('ai-loading').style.display = 'none';
       const errEl = document.getElementById('ai-error');
-      errEl.textContent = `⚠️ Analysis failed: ${err.message}`;
+      errEl.textContent = `Analysis failed: ${err.message}`;
       errEl.style.display = 'block';
       btn.disabled = false;
       document.getElementById('analyze-btn-text').textContent = 'Try Again';
